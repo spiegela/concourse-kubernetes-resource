@@ -125,17 +125,28 @@ resources:
   - name: node-list
     type: kubernetes-object
     source:
-      tracing_enabled: true
       list: nodes
       <<: *k8s_env
 
 jobs:
-  - name: something-that-waits-for-nodes-to-be-ready
+  - name: remove-node-taints
     plan:
+# Get the nodes once they're all ready
       - get: node-list
         params:
           wait: true
           wait_for: '.status.conditions[?(@.type=="Ready")].status'
+# Remove the master taint if it exists
+      - try:
+          put: node-list
+          params:
+            command: taint
+            command_args: "--all node-role.kubernetes.io/master:NoSchedule-"
+# Annotate the nodes that they have passed this step in case they didn't need to be modified
+      - put: node-list
+        params:
+          command: annotate
+          command_args: "--overwrite --all node-status.spieg.org/master-taint-removed=((cluster_version))"
 ```
 
 ### Resource that uses a URL
@@ -185,7 +196,7 @@ jobs:
 
 ### Create by command arguments
 
-Sometimes we like to create things through a single CLI instead of a template, and I say _"Why not? You do you."_  Of course, since the object details are defined in the `params` block, you should define the objects explicityly in the `source` block.
+Sometimes we like to create things through a single CLI instead of a template, and I say _"Why not? You do you."_  Of course, since the object details are defined in the `params` block, you should define the objects explicitly in the `source` block.
 
 ```yaml
 resources:
@@ -200,16 +211,60 @@ resources:
 
   - name: metallb
     plan:
-      - task: generate-memberlist-key
+    -  get: memberlist-secret
+       on_failure:
+         do:
+           - task: generate-memberlist-key
+             config:
+               platform: linux
+               outputs:
+                 - name: memberlist
+               image_resource:
+                 type: docker-image
+                 source:
+                   repository: frapsoft/openssl
+                   tag: latest
+               run:
+                 path: /bin/ash
+                 args:
+                   - -c
+                   - |
+                     if [ $DEBUG == "true" ]; then
+                       set -x
+                     fi
+                     openssl rand -base64 128 > memberlist/secretkey
+           - load_var: memberlist-secret
+             file: memberlist/secretkey
+           - put: memberlist-secret
+             inputs:
+               - memberlist
+             params:
+               command: create
+               command_args: generic --from-literal=secretkey=((.:memberlist-secret))
+```
+
+### Using JSONPath for useful info in an object
+
+Maybe you just one some info about a K8s object using JSONPath.  That can be super fun:
+
+```yaml
+jobs:
+  - name: something-that-needs-to-know-my-k8s-version
+    plan:
+      - get: node-list
+        params:
+          output: jsonpath='{.items[0].status.nodeInfo.kubeletVersion}'
+          output_file: version.txt
+      - task: k8s-newer-than-1.16
         config:
           platform: linux
           image_resource:
             type: docker-image
             source:
-              repository: frapsoft/openssl
+              repository: alpine
               tag: latest
-          outputs:
-            - name: memberlist-key
+          inputs:
+            - name: node-list
           run:
             path: /bin/ash
             args:
@@ -218,10 +273,18 @@ resources:
                 if [[ $DEBUG == "true" ]]; then
                   set -x
                 fi
-                openssl rand -base64 128 > memberlist-key/key
-      - get: memberlist-secret
-        on_failure:
-          put: memberlist-secret
-          params:
-            command_args: secret generic -n metallb-system memberlist --from-file=secretkey=files/key
+                if [[ $(cat node-list/version.txt | cut -d"." -f2 | tr -d "\n") -gt 16 ]]; then
+                  echo "Kubernetes is older than 1.17, so we're not going to do stuff."
+                  exit 1
+                else
+                  echo "Kubernetes is 1.17 or newer, so we going to do stuff."
+                  exit 0
+                fi
+      on_success:
+        do:
+          # stuff
 ```
+
+## Other cool Concourse-y things
+
+I have a strong opinion that Concourse resources are way more useful when they support all the core actions: `in`, `out`, and `check`, even when all the `in`/`check` actions do is fetch some metadata.  If you like this model, you can also checkout my fork of a [Helm 3 resource](https://github.com/spiegela/concourse-helm3-resource/).
