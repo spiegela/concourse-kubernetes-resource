@@ -8,6 +8,42 @@ Based on the work of https://github.com/typositoire/concourse-helm3-resource
 
 https://hub.docker.com/r/spiegela/concourse-kubernetes-resource
 
+## Behavior
+
+### `check`: Check object, and return the object resource revision along with metadata
+
+### `in`: Return the resource as a set of text files based on the object name and kind
+
+#### Parameters
+
+* `file`: *Optional.* file template to query/delete/apply to the Kubernetes cluster.
+* `url`: *Optional.* URL template to query/delete/apply to the Kubernetes cluster.
+* `command`: *Optional.* specify a custom command for `kubectl` commands as an alternative query/mutation method when not using a file/url template.
+* `command_args`: *Optional.* a list of arguments for `kubectl` `get`, `create` or `delete` commands as an alternative creation method when not using a file/url template.
+* `token_path`: *Optional.* Path to file containing the bearer token for Kubernetes.  This, 'token' or `admin_key`/`admin_cert` are required if `cluster_url` is https.
+* `kubeconfig_path`: *Optional.* File containing a kubeconfig. Overrides source configuration for cluster, token, and admin config.
+* `wait`: *Optional.* Monitors the resource specified in the `wait_for` configuration for readiness, or deletion of all resources if deleting.
+* `wait_for`: *Optional.* Condition for which we should wait, as specified in `kubectl wait --for` command. Required for `wait` of applied resources, not for get, check, or delete operations.
+* `output`: *Optional.* kubectl output option to apply to the kubernetes objects. Matches the options for `kubectl -o`  (`yaml`, `json`, `wide`, `jsonpath`, etc.)
+* `output_file`: *Optional.* file to place the output data within. If not provided, the output file will have a basename of "objects" with an extension based on the output type.
+* `timeout`: *Optional.* Amount of time in seconds to wait for resources to reach the desired condition. (Default: 30)
+
+### `out`: Apply a set Kubernetes objects to the configured namespace
+
+#### Parameters
+
+* `file`: *Optional.* file template to query/delete/apply to the Kubernetes cluster.
+* `url`: *Optional.* URL template to query/delete/apply to the Kubernetes cluster.
+* `command`: *Optional.* specify a custom command for `kubectl` commands as an alternative query/mutation method when not using a file/url template.
+* `command_args`: *Optional.* a list of arguments for `kubectl` `get`, `create` or `delete` commands as an alternative creation method when not using a file/url template.
+* `token_path`: *Optional.* Path to file containing the bearer token for Kubernetes.  This, 'token' or `admin_key`/`admin_cert` are required if `cluster_url` is https.
+* `kubeconfig_path`: *Optional.* File containing a kubeconfig. Overrides source configuration for cluster, token, and admin config.
+* `wait`: *Optional.* Monitors the resource specified in the `wait_for` configuration for readiness, or deletion of all resources if deleting.
+* `wait_for`: *Optional.* Condition for which we should wait, as specified in `kubectl wait --for` command. Required for `wait` of applied resources, not for get, check, or delete operations.
+* `output`: *Optional.* kubectl output option to apply to the kubernetes objects. Matches the options for `kubectl -o`  (`yaml`, `json`, `wide`, `jsonpath`, etc.)
+* `output_file`: *Optional.* file to place the output data within. If not provided, the output file will have a basename of "objects" with an extension based on the output type.
+* `timeout`: *Optional.* Amount of time in seconds to wait for resources to reach the desired condition. (Default: 30)
+
 ## Usage
 
 ```yaml
@@ -41,29 +77,6 @@ resource_types:
 
 * `name`: *Required.* Name of the Kubernetes object.
 * `kind`: *Required.* Fully qualified for short name of the object type (deployment, stateful-set, nodes.metrics.k8s.io, etc.)
-
-## Behavior
-
-### `check`: Check object, and return the object resource revision along with metadata
-
-### `in`: Return the resource as a set of text files based on the object name and kind
-
-### `out`: Apply a set Kubernetes objects to the configured namespace
-
-#### Parameters
-
-* `file`: *Optional.* file template to query/delete/apply to the Kubernetes cluster.
-* `url`: *Optional.* URL template to query/delete/apply to the Kubernetes cluster.
-* `command`: *Optional.* specify a custom command for `kubectl` commands as an alternative query/mutation method when not using a file/url template.
-* `command_args`: *Optional.* a list of arguments for `kubectl` `get`, `create` or `delete` commands as an alternative creation method when not using a file/url template.
-* `token_path`: *Optional.* Path to file containing the bearer token for Kubernetes.  This, 'token' or `admin_key`/`admin_cert` are required if `cluster_url` is https.
-* `kubeconfig_path`: *Optional.* File containing a kubeconfig. Overrides source configuration for cluster, token, and admin config.
-* `delete`: *Optional for OUT.* Deletes the release instead of installing it. Requires the `name`. (Default: false)
-* `wait`: *Optional.* Monitors the resource specified in the `wait_for` configuration for readiness, or deletion of all resources if deleting.
-* `wait_for`: *Optional.* Condition for which we should wait, as specified in `kubectl wait --for` command. Required for `wait` of applied resources, not for get, check, or delete operations.
-* `output`: *Optional.* kubectl output option to apply to the kubernetes objects. Matches the options for `kubectl -o`  (`yaml`, `json`, `wide`, `jsonpath`, etc.)
-* `output_file`: *Optional.* file to place the output data within. If not provided, the output file will have a basename of "objects" with an extension based on the output type.
-* `timeout`: *Optional.* Amount of time in seconds to wait for resources to reach the desired condition. (Default: 30)
 
 ## Usage Examples
 
