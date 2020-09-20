@@ -29,7 +29,7 @@ output_args() {
 }
 
 output_file() {
-  local PAYLOAD=$1
+  local PAYLOAD=$1 SOURCE=$2
 
   OUTPUT=$(jq -r '.params.output // empty' <<< "$PAYLOAD")
   OUTPUT_FILE=$(jq -r '.params.output_file // empty' <<< "$PAYLOAD")
@@ -38,7 +38,7 @@ output_file() {
     EXTENSION=$(outfile_extension "$OUTPUT")
     OUTPUT_FILE="objects.$EXTENSION"
   fi
-  echo "$OUTPUT_FILE"
+  echo "$SOURCE/$OUTPUT_FILE"
 }
 
 # base_command returns the base command command sent to kubectl for the operation.
