@@ -28,21 +28,21 @@ OUTPUT_FILE=$(output_file "$PAYLOAD" "$SOURCE")
 WAIT=$(jq -r '.params.wait // empty' <<< "$PAYLOAD")
 WAIT_FOR=$(jq -r '.params.wait_for // empty' <<< "$PAYLOAD")
 
-ALL_READY=1
-
 if [ "$WAIT" == "true" ]; then
   if [ -z "$WAIT_FOR" ]; then
     echo "⚠️ \"wait_for\" parameter is not supplied.  It is required for waiting on resources with in \"get\" blocks."
   fi
 
   echo "⏳ Waiting for resources to match desired status conditions:"
-  echo "    ▶️ kubectl get ${ARGS[*:1]} -o jsonpath=\"$WAIT_FOR\""
+  echo "    ▶️ kubectl get ${ARGS[*]:1} -o jsonpath=\"$WAIT_FOR\""
   TIMEOUT=$(jq -r '.params.timeout // 30' <<< "$PAYLOAD")
 
+  ALL_READY=1
   for (( i = 0; i < TIMEOUT; i++ )); do
+    ALL_READY=1
     read -r -a STATES <<< "$(kubectl get "${ARGS[@]:1}" -o jsonpath="$WAIT_FOR")"
     for STATE in "${STATES[@]}" ; do
-      if [ "$STATE" == "False" ]; then
+      if [ "$STATE" != "True" ]; then
         ALL_READY=0
         break
       fi
@@ -50,16 +50,6 @@ if [ "$WAIT" == "true" ]; then
     sleep 1
   done
 fi
-
-# Copy arguments to new array to add command arguments, which are only used for
-# the primary command execution, not wait or version queries
-#EXEC_ARGS=("${ARGS[@]}")
-#
-#COMMAND_ARGS=()
-#read -r -a COMMAND_ARGS <<< "$(jq -r '.params.command_args // empty' <<< "$PAYLOAD")"
-#if [ -n "${COMMAND_ARGS[*]}" ]; then
-#  EXEC_ARGS+=("${COMMAND_ARGS[@]}")
-#fi
 
 if [ $ALL_READY -eq 1 ]; then
   echo "🔎 Performing a Kubernetes query:"

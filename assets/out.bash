@@ -52,6 +52,8 @@ else
   exit 1
 fi
 
+WAIT=$(jq -r '.params.wait // empty' <<< "$PAYLOAD")
+
 if [ "${ARGS[0]}" == "delete" ]; then
   if [ "$WAIT" == "true"  ]; then
     EXEC_ARGS+=("--wait")
