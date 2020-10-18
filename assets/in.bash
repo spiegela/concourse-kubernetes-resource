@@ -28,6 +28,7 @@ OUTPUT_FILE=$(output_file "$PAYLOAD" "$SOURCE")
 WAIT=$(jq -r '.params.wait // empty' <<< "$PAYLOAD")
 WAIT_FOR=$(jq -r '.params.wait_for // empty' <<< "$PAYLOAD")
 
+ALL_READY=1
 if [ "$WAIT" == "true" ]; then
   if [ -z "$WAIT_FOR" ]; then
     echo "⚠️ \"wait_for\" parameter is not supplied.  It is required for waiting on resources with in \"get\" blocks."
@@ -37,7 +38,6 @@ if [ "$WAIT" == "true" ]; then
   echo "    ▶️ kubectl get ${ARGS[*]:1} -o jsonpath=\"$WAIT_FOR\""
   TIMEOUT=$(jq -r '.params.timeout // 30' <<< "$PAYLOAD")
 
-  ALL_READY=1
   for (( i = 0; i < TIMEOUT; i++ )); do
     ALL_READY=1
     read -r -a STATES <<< "$(kubectl get "${ARGS[@]:1}" -o jsonpath="$WAIT_FOR")"
