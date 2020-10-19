@@ -47,11 +47,14 @@ if [ "$WAIT" == "true" ]; then
         break
       fi
     done
+    if [ "$ALL_READY" = "1" ]; then
+      break
+    fi
     sleep 1
   done
 fi
 
-if [ $ALL_READY -eq 1 ]; then
+if [[ "$ALL_READY" == "1" ]]; then
   echo "🔎 Performing a Kubernetes query:"
   echo "    ▶️ kubectl ${ARGS[*]} ${OUTPUT_ARGS[*]} > $OUTPUT_FILE"
   if [ "$TRACING_ENABLED" == "true" ]; then
