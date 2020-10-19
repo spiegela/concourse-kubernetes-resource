@@ -279,12 +279,16 @@ setup_kubernetes() {
   local PAYLOAD=$1 SOURCE=$2 KUBECONFIG_RELATIVE
 
   KUBECONFIG_RELATIVE=$(jq -r '.params.kubeconfig_path // empty' <<< "$PAYLOAD")
+  KUBECONFIG_TEXT=$(jq -r '.source.kubeconfig // empty' <<< "$PAYLOAD")
+
   if [[ -n "$KUBECONFIG_RELATIVE" && -f "${SOURCE}/${KUBECONFIG_RELATIVE}" ]]; then
     export KUBECONFIG="${SOURCE}/${KUBECONFIG_RELATIVE}"
+  elif [ -n "$KUBECONFIG_TEXT" ]; then
+    KUBECONFIG=$( mktemp kubeconfig.XXXXXX )
+    echo "$KUBECONFIG_TEXT" > "$KUBECONFIG"
+    export KUBECONFIG
   else
-
     local CLUSTER_URL
-
     CLUSTER_URL=$(jq -r '.source.cluster_url // empty' <<< "$PAYLOAD")
     if [ -z "$CLUSTER_URL" ]; then
       >&2 echo "⚠️ Error: invalid payload: must provide either kubeconfig_path or cluster_url"
