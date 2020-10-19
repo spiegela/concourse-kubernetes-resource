@@ -46,7 +46,7 @@ elif [[ "${ARGS[1]}" =~ ^[A-z]+\/.* ]]; then
   fi
   KIND=$(echo "${ARGS[1]}" | cut -d"/" -f1 | tr "[:upper:]" "[:lower:]")
   NAME=$(echo "${ARGS[1]}" | cut -d"/" -f2)
-  EXEC_ARGS=("${ARGS[0]}" "$KIND" $(echo "${COMMAND_ARGS[@]}") "$NAME" $(echo "${ARGS[@]:2}"))
+  EXEC_ARGS=("${ARGS[0]}" "$KIND" "${COMMAND_ARGS[@]}" "${ARGS[@]:2}" "$NAME")
 else
   echo "⚠️ Error: unable to determine resource format.  Must be a bug🐛. 😥"
   exit 1
