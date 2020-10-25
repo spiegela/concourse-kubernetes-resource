@@ -151,8 +151,11 @@ base_args() {
   local DESCRIPTION
   DESCRIPTION=$(command_description "${ARGS[0]}")
 
-  if [ -f "$SOURCE/$FILE" ]; then
+  if [[ -n "$FILE" && -f "$SOURCE/$FILE" ]]; then
     >&2 echo "📄 Using file: \"$SOURCE/$FILE\" for object $DESCRIPTION"
+    ARGS+=("-f" "$SOURCE/$FILE")
+  elif [[ -n "$FILE" && -d "$SOURCE/$FILE" ]]; then
+    >&2 echo "📁 Using directory: \"$SOURCE/$FILE\" for object $DESCRIPTION"
     ARGS+=("-f" "$SOURCE/$FILE")
   elif [ -n "$PARAMS_URL" ]; then
     >&2 echo "🔗 Using url: \"$PARAMS_URL\" for object $DESCRIPTION"
@@ -276,7 +279,7 @@ object_version_data() {
 
 # setup_kubernetes create a Kubernetes configuration based on the source or parameters
 setup_kubernetes() {
-  local PAYLOAD=$1 SOURCE=$2 KUBECONFIG_RELATIVE
+  local PAYLOAD=$1 SOURCE=$2 KUBECONFIG_RELATIVE KUBECONFIG_TEXT
 
   KUBECONFIG_RELATIVE=$(jq -r '.params.kubeconfig_path // empty' <<< "$PAYLOAD")
   KUBECONFIG_TEXT=$(jq -r '.source.kubeconfig // empty' <<< "$PAYLOAD")
