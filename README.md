@@ -6,7 +6,7 @@ Based on the work of https://github.com/typositoire/concourse-helm3-resource
 
 ## Docker Image
 
-https://hub.docker.com/r/spiegela/concourse-kubernetes-resource
+https://hub.docker.com/r/spiegela/concourse-kubernetes
 
 ## Behavior
 
