@@ -175,10 +175,13 @@ base_args() {
     kill -s TERM "$PID"
   fi
 
-  local NAMESPACE
+  local NAMESPACE ALL_NAMESPACES
   NAMESPACE=$(jq -r '.source.namespace // empty' <<< "$PAYLOAD")
+  ALL_NAMESPACES=$(jq -r '.source.all-namespaces // empty' <<< "$PAYLOAD")
   if [ -n "$NAMESPACE" ]; then
     ARGS+=("-n" "$NAMESPACE")
+  elif [ "$ALL_NAMESPACES" == "true" ]; then
+    ARGS+=("--all-namespaces")
   fi
 
   echo "${ARGS[*]}"

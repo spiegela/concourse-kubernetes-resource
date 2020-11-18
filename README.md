@@ -59,11 +59,13 @@ resource_types:
 ### Root configuration
 
 * `objects`: *Required.* A list of Kubernetes objects represented by the resource. The schema of this listed below, this list can be used to query/delete objects, but not to apply them.
-* `namespace`: *Optional.* Kubernetes namespace the chart will be installed into. (Default: `default`)
+* `namespace`: *Optional.* Kubernetes namespace the object. (Default: `default`)
+* `all-namespaces`: *Optional.* Indicates that all namespaces should be queried for the resource.  Should only be applicable for `list` resources. (Default: `false`)
 * `url`: *Optional.* A URL to a supported Kubenretes template to address the sources.  Supports `check`, `put`, and `get` operations.
 * `list`: *Optional for IN only.* Rather than getting a distinct set of resources, get a listing. Provide `true` or `false`.  (Default: `false`) Not supported for *OUT*.
 * `field_selector`: *Optional for IN only.* Field selector to limit objects when retrieving a listing. Follows `kubectl` syntax. Not supported for *OUT*.
 * `label_selector`: *Optional for IN only.* Label selector to limit objects when retrieving a listing. Follows `kubectl` syntax. Not supported for *OUT*.
+* `kubeconfig`: *Optional.* A Kubernetes config file used for cluster access and authentication provided as a string parameter to the source configuration.
 * `cluster_url`: *Optional.* URL to Kubernetes Master API service. Do not set when using the `kubeconfig_path` parameter, otherwise required.
 * `cluster_ca`: *Optional.* Base64 encoded PEM. (Required if `insecure_cluster` == false)
 * `insecure_cluster`: *Optional.* Skip TLS verification for cluster API. (Required if `cluster_ca` is nil)
