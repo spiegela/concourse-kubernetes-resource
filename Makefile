@@ -1,4 +1,4 @@
-PROJECT = concourse-kubernetes
+PROJECT = concourse-component-version
 ID = spiegela/${PROJECT}
 
 all: build push

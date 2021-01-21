@@ -10,34 +10,64 @@ exec 1>&2 # redirect all output to stderr for logging
 PAYLOAD=$(cat <&0)
 
 TRACING_ENABLED=$(jq -r '.source.tracing_enabled // empty' <<< "$PAYLOAD")
-if [ "$TRACING_ENABLED" = "true" ]; then
+if [ "$TRACING_ENABLED" == "true" ]; then
   set -x
+fi
+
+COMPONENT=$(jq -r '.source.component // empty' <<< "$PAYLOAD")
+if [ -z "$COMPONENT" ]; then
+  echo "source.component field is required ⚠️"
+  exit 1
 fi
 
 source /opt/resource/common.sh
 
-setup_kubernetes "$PAYLOAD"
+COMPONENTS_DIR=$(setup_components_dir "$PAYLOAD")
+COMPONENT_DIR="$COMPONENTS_DIR/components/$COMPONENT"
+TAG=$(jq -r '.source.tag // empty' <<< "$PAYLOAD")
+VERSION=$(jq -r '.source.version // empty' <<< "$PAYLOAD")
 
-ARGS=()
-read -r -a ARGS <<< "$(base_args "$PAYLOAD" "CHECK")"
-
-NOT_FOUND_REGEX="^Error[[:space:]]from[[:space:]]server[[:space:]](NotFound):"
-
-# Allow command to fail, so we can check for NotFound errors
-set +e
-OBJECT_JSON=$(kubectl get "${ARGS[@]:1}" -o json 2> stderr.out)
-set -e
-STDERR=$(cat stderr.out)
-
-# shellcheck disable=SC2181 # Capturing STDOUT & STDERR on a separate line is
-# better than testing the exit code in-line
-if [ $? -ne 0 ]; then
-  if [[ "$STDERR" =~ $NOT_FOUND_REGEX ]]; then
-    >&3 echo "[]"
-    exit 0
-  fi
-  echo "$STDERR"
-  exit 1
+if [ ! -d  "$COMPONENT_DIR" ]; then
+  >&3 echo "[]"
+  rm -rf "$COMPONENTS_DIR"
+  exit 0
 fi
 
->&3 echo "[$(object_versions "$OBJECT_JSON" "$TRACING_ENABLED")]"
+if [ -n "$TAG" ]; then
+  pushd "$COMPONENTS_DIR"
+    VERSION=$(./product get "$TAG" "$COMPONENT")
+  popd
+fi
+
+if [ -n "$VERSION" ]; then
+  if [ -d "$COMPONENT_DIR/$VERSION" ]; then
+    echo "[{\"version\": \"$VERSION\"}]"
+    rm -rf "$COMPONENTS_DIR"
+    exit 0
+  else
+    echo "[]"
+    rm -rf "$COMPONENTS_DIR"
+    exit 0
+  fi
+fi
+
+shopt -s extglob
+shopt -s dotglob
+shopt -s nullglob
+
+VERSION_PATHS=("$COMPONENT_DIR/"!(tags))
+if [ -z "${VERSION_PATHS[*]}" ]; then
+    echo "[]"
+    rm -rf "$COMPONENTS_DIR"
+    exit 0
+fi
+
+VERSIONS=()
+for VERSION_PATH in "${VERSION_PATHS[@]}" ; do
+  VERSIONS+=( "$(basename "$VERSION_PATH")" )
+done
+
+VERSIONS_CSV=$(printf '{"version": "%s"}, ' "${VERSIONS[@]}" | sed -e 's|, $||')
+
+>&3 echo "[$VERSIONS_CSV]"
+rm -rf "$COMPONENTS_DIR"

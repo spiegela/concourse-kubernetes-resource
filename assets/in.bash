@@ -16,56 +16,81 @@ if [ "$TRACING_ENABLED" = "true" ]; then
   set -x
 fi
 
-setup_kubernetes "$PAYLOAD" "$SOURCE"
+source /opt/resource/common.sh
 
-ARGS=()
-read -r -a ARGS <<< "$(base_args "$PAYLOAD" "IN")"
+COMPONENTS_DIR=$(setup_components_dir "$PAYLOAD")
+PRODUCT_BIN="$COMPONENTS_DIR/product"
 
-OUTPUT_ARGS=()
-read -r -a OUTPUT_ARGS <<< "$(output_args "$PAYLOAD")"
-OUTPUT_FILE=$(output_file "$PAYLOAD" "$SOURCE")
-
-WAIT=$(jq -r '.params.wait // empty' <<< "$PAYLOAD")
-WAIT_FOR=$(jq -r '.params.wait_for // empty' <<< "$PAYLOAD")
-
-ALL_READY=1
-if [ "$WAIT" == "true" ]; then
-  if [ -z "$WAIT_FOR" ]; then
-    echo "⚠️ \"wait_for\" parameter is not supplied.  It is required for waiting on resources with in \"get\" blocks."
-  fi
-
-  echo "⏳ Waiting for resources to match desired status conditions:"
-  echo "    ▶️ kubectl get ${ARGS[*]:1} -o jsonpath=\"$WAIT_FOR\""
-  TIMEOUT=$(jq -r '.params.timeout // 30' <<< "$PAYLOAD")
-
-  for (( i = 0; i < TIMEOUT; i++ )); do
-    ALL_READY=1
-    read -r -a STATES <<< "$(kubectl get "${ARGS[@]:1}" -o jsonpath="$WAIT_FOR")"
-    for STATE in "${STATES[@]}" ; do
-      if [ "$STATE" != "True" ]; then
-        ALL_READY=0
-        break
-      fi
-    done
-    if [ "$ALL_READY" = "1" ]; then
-      break
-    fi
-    sleep 1
-  done
-fi
-
-if [[ "$ALL_READY" == "1" ]]; then
-  echo "🔎 Performing a Kubernetes query:"
-  echo "    ▶️ kubectl ${ARGS[*]} ${OUTPUT_ARGS[*]} > $OUTPUT_FILE"
-  if [ "$TRACING_ENABLED" == "true" ]; then
-    kubectl "${ARGS[@]}" "${OUTPUT_ARGS[@]}" | tee "$OUTPUT_FILE"
-  else
-    kubectl "${ARGS[@]}" "${OUTPUT_ARGS[@]}" > "$OUTPUT_FILE"
-  fi
-else
-  echo "💩 Timed out waiting for resources to reach desired status condition"
+COMPONENT=$(jq -r '.source.component // empty' <<< "$PAYLOAD")
+if [ -z "$COMPONENT" ]; then
+  echo "source.component field is required ⚠️"
   exit 1
 fi
 
-OBJECT_JSON=$(kubectl get "${ARGS[@]:1}" -o json)
->&3 object_version_data "$OBJECT_JSON" "$TRACING_ENABLED"
+# Allow version field specified in params to override that defined in source
+# if neither is specified, version will remain empty, and tag will be used
+VERSION=$(jq -r '.params.version // empty' <<< "$PAYLOAD")
+if [ -z "$VERSION" ]; then
+  VERSION=$(jq -r '.source.version // empty' <<< "$PAYLOAD")
+fi
+
+# If no version is specified, then we will retrieve the version from the tag
+if [ -z "$VERSION" ]; then
+
+  # Allow tag field specified in params to override that defined in source
+  # if neither is specified, "latest" tag will be assumed
+  TAG=$(jq -r '.params.tag // empty' <<< "$PAYLOAD")
+  if [ -z "$TAG" ]; then
+    TAG=$(jq -r '.source.tag // empty' <<< "$PAYLOAD")
+    if [ -z "$TAG" ]; then
+      TAG="latest"
+    fi
+  fi
+
+  pushd "$COMPONENTS_DIR"
+    VERSION=$("$PRODUCT_BIN" get "$TAG" "$COMPONENT")
+    if [ -z "$VERSION" ]; then
+      echo "$COMPONENT tag $TAG is not found"
+      exit 1
+    fi
+  popd
+fi
+
+VERSION_DIR="$COMPONENTS_DIR/components/$COMPONENT/$VERSION"
+
+if [ ! -d "$VERSION_DIR" ]; then
+  echo "$COMPONENT version $VERSION not found ⚠️"
+  exit 1
+fi
+cp "$VERSION_DIR/"* "$SOURCE"
+
+CLONE_SOURCES=$(jq -r '.params.clone_sources // empty' <<< "$PAYLOAD")
+
+# write component metadata to source directory
+echo "$VERSION" > "$SOURCE/version"
+echo "$COMPONENT" > "$SOURCE/component"
+sed -re 's|^v||' <<<"$VERSION" > "$SOURCE/tag"
+sed -re 's|[.@_:<>=+-]+|-|g' <<<"$VERSION" > "$SOURCE/slug"
+
+mkdir "$SOURCE/buildRepos"
+
+SOURCES=()
+read -r -a SOURCES <<< "$(jq -r '.buildRepos[] | .url + "|" + .commit' < "$VERSION_DIR/artifacts.json")"
+
+for SOURCE_STRING in "${SOURCES[@]}" ; do
+  URL=$(cut -d"|" -f1 <<< "$SOURCE_STRING")
+  COMMIT=$(cut -d"|" -f2 <<< "$SOURCE_STRING")
+  REPO_FLATTENED=$(sed -e 's/\//_/g' <<< "$URL")
+
+  echo "$COMMIT" > "$SOURCE/buildRepos/$REPO_FLATTENED"
+
+  if [ "$CLONE_SOURCES" == "true" ]; then
+    mkdir -p "$SOURCE/sources"
+    git clone "$URL" "$SOURCE/sources/$REPO_FLATTENED"
+    pushd "$SOURCE/sources/$REPO_FLATTENED"
+      git checkout "$COMMIT"
+    popd
+  fi
+done
+
+>&3 component_version_data "$PAYLOAD" "$COMPONENT" "$VERSION"

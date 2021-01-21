@@ -1,14 +1,19 @@
 FROM alpine
-LABEL maintainer "Aaron Spiegel <spiegela@gmail>"
+LABEL maintainer = "Dell EMC ObjectScale"
 ADD assets /opt/resource
 
 # rename .bash files to the unextended name, so that the entrypoint stays simple
-RUN for i in /opt/resource/*.bash; do mv -i "$i" /opt/resource/$(basename "$i" .bash); done
-RUN apk add jq curl bash
+RUN for i in /opt/resource/*.bash; do mv -i "$i" /opt/resource/$(basename "$i" .bash); done && \
+    chmod 755 /opt/resource/* /opt/resource/manifest/*
+RUN apk --no-cache add jq curl bash openssh-client git python3
 
-RUN curl -Lo /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/v1.19.0/bin/linux/amd64/kubectl
-RUN chmod +x /usr/local/bin/kubectl
-RUN mkdir /root/.kube
+ENV PYTHONUNBUFFERED=1
+
+RUN python3 -m ensurepip && \
+    rm -r /usr/lib/python*/ensurepip && \
+    pip3 install --no-cache --upgrade pip setuptools wheel && \
+    cd /opt/resource/manifest && \
+    pip3 install -r requirements.txt
 
 COPY entrypoint.sh /entrypoint.sh
 ENTRYPOINT [ "/entrypoint.sh" ]
